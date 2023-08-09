@@ -1,0 +1,115 @@
+<html>
+
+<head>
+    <script src="https://cdn.plot.ly/plotly-2.12.1.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.8.4/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.5.1/dist/tfjs-vis.umd.min.js"></script> -->
+
+    <script src="js/tf.min.js"></script>
+    <script src="js/tfjs-vis.umd.min.js"></script>
+</head>
+
+<body>
+    <h2>TensorFlow.js</h2>
+    <p id="message">Model is training!</p>
+
+    <div id="myPlot" style="width:100%;max-width:700px"></div>
+
+    <script>
+        async function loadDataAndTrain() {
+            // Load CSV data
+            const csvUrl = 'MergedNewFiles.csv';
+            const csvDataset = tf.data.csv(csvUrl, {
+                columnConfigs: {
+                    // Define your column configurations if needed
+                }
+            });
+
+            // Convert CSV data to tensors
+            const xs = [];
+            const ys = [];
+            await csvDataset.forEachAsync(record => {
+                const xTensor = tf.tensor1d([
+                    Number(record['ID']),
+                    Number(record['TIME']),
+                    Number(record['MONTH']),
+                    Number(record['DAY_OF_WEEK']),
+                    Number(record['DAY_OF_MONTH']),
+                    Number(record['HOUR']),
+                    Number(record['TEMPERATURE']),
+                    Number(record['PRECIPITATION'])
+                ]);
+                xs.push(xTensor);
+                ys.push((record['MGD']));
+            });
+
+            // Convert ys to a single tensor
+            const ysTensor = tf.tensor1d(ys);
+            const xsTensor = tf.tensor1d(xs);
+
+            // Define a Linear Regression Model
+            const model = tf.sequential();
+            model.add(
+                tf.layers.dense({
+                    units: 64,
+                    inputShape: [1],
+                    activation: 'relu'
+                })
+            );
+            model.add(
+                tf.layers.dense({
+                    units: 32,
+                    activation: 'relu'
+                })
+            );
+            model.add(
+                tf.layers.dense({
+                    units: 1
+                })
+            );
+
+            // Specify Loss and Optimizer
+            model.compile({
+                optimizer: tf.train.sgd(0.01),
+                loss: 'meanSquaredError'
+            });
+
+            const onEpochEnd = async(epoch, logs) => {
+                console.log(`Epoch ${epoch}, Loss: ${Object.values(logs)}`);
+            };
+
+            // Train the Model
+            await model.fit(xsTensor, ysTensor, {
+                epochs: 500,
+                callbacks: {
+                    onEpochEnd: async(epoch, logs) => {
+                        console.log(epoch + ':' + logs.loss);
+                    }
+                }
+            });
+            console.log("training done")
+                // Perform predictions and plot
+            myFunction(tf.tensor1d([1.60946E+12, 1.60946E+12, 0, 5, 1, 1, 74, 0]), model);
+        }
+
+
+
+
+
+        async function myFunction(predictData, model) {
+            const result = model.predict(predictData);
+            const y = (await result.data())[0];
+            console.log(await result.data())
+            document.getElementById('message').style.display = "none";
+        }
+
+        function plot(xArr, yArr) {
+            // Your existing plot code...
+        }
+
+        // Load data and start the process
+        loadDataAndTrain();
+    </script>
+</body>
+
+</html>
